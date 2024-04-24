@@ -6,6 +6,10 @@
 #include <openssl/rand.h>
 #include "../header/cryptodef.h"
 
+/*
+ * TODO: handle errors properly
+ */
+
 int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
     SHA256_CTX sha256;
 
@@ -133,6 +137,49 @@ int encryptData(const char *plainText, int plainTextLen, const unsigned char *ke
         return 1;
     }
     *outCipherTextLen += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return 0;
+}
+
+int decryptData(const unsigned char *cipherText, int cipherTextLen, const unsigned char *key, unsigned char *iv, unsigned char **plainText, int *plainTextLen) {
+    EVP_CIPHER_CTX *ctx;
+    int len;
+
+    *plainText = (unsigned char *)malloc(cipherTextLen);
+    if (*plainText == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        return 1;
+    }
+
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        fprintf(stderr, "Error: Failed to create cipher context\n");
+        free(*plainText);
+        return 1;
+    }
+
+    if(!EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        fprintf(stderr, "Error: Failed to initialize decryption operation\n");
+        free(*plainText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+
+    if(!EVP_DecryptUpdate(ctx, *plainText, &len, cipherText, cipherTextLen)) {
+        fprintf(stderr, "Error: Decryption failed\n");
+        free(*plainText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+    *plainTextLen = len;
+
+    if(!EVP_DecryptFinal_ex(ctx, *plainText + len, &len)) {
+        fprintf(stderr, "Error: Finalizing decryption failed\n");
+        free(*plainText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+    *plainTextLen += len;
 
     EVP_CIPHER_CTX_free(ctx);
     return 0;
