@@ -34,3 +34,50 @@ int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
 
     return 0;
 }
+
+
+unsigned char *getRandomSalt() {
+    unsigned char *salt = (unsigned char *)malloc(SALT_SIZE);
+    if (salt == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
+    }
+
+    if (!RAND_bytes(salt, SALT_SIZE)) {
+        fprintf(stderr, "Failed to generate salt\n");
+        free(salt);
+        return NULL;
+    }
+
+    return salt;
+}
+
+unsigned char *deriveKey(const char *password, unsigned char *salt) {
+	unsigned char *key = (unsigned char *)malloc(KEY_SIZE);
+	if (key == NULL) {
+	    fprintf(stderr, "Memory allocation failed\n");
+	    return NULL;
+	}
+
+	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+	if (ctx == NULL) {
+	    fprintf(stderr, "Failed to create EVP_MD_CTX\n");
+	    free(key);
+	    return NULL;
+}
+
+unsigned char *getRandomIV() {
+	unsigned char *iv = (unsigned char *)malloc(AES_BLOCK_SIZE / 8);
+	if (iv == NULL) {
+	    fprintf(stderr, "getRandomIV: Memory allocation failed\n");
+	    return NULL;
+	}
+
+	if (!RAND_bytes(iv, AES_BLOCK_SIZE / 8)) {
+	    fprintf(stderr, "getRandomIV: Failed to generate IV\n");
+	    free(iv);
+	    return NULL;
+	}
+	return iv;
+}
+
