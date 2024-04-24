@@ -64,6 +64,18 @@ unsigned char *deriveKey(const char *password, unsigned char *salt) {
 	    fprintf(stderr, "Failed to create EVP_MD_CTX\n");
 	    free(key);
 	    return NULL;
+	}
+
+	if (EVP_PBE_scrypt(password, strlen(password), salt, SALT_SIZE, ITERATIONS, 8, 1, 256*ITERATIONS*8*1, key, KEY_SIZE) != 1) {
+		    fprintf(stderr, "Failed to derive key\n");
+		    free(key);
+		    EVP_MD_CTX_free(ctx);
+		    return NULL;
+		}
+
+		EVP_MD_CTX_free(ctx);
+		return key;
+	}
 }
 
 unsigned char *getRandomIV() {

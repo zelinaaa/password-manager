@@ -12,4 +12,6 @@
 #define AES_KEY_SIZE 256
 #define AES_BLOCK_SIZE 128
 
+#define ITERATIONS 262144 // Number of iterations for key derivation
+
 #endif
