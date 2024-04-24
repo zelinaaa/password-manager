@@ -3,6 +3,7 @@
 #include <string.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/rand.h>
 #include "../header/cryptodef.h"
 
 int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
@@ -71,11 +72,10 @@ unsigned char *deriveKey(const char *password, unsigned char *salt) {
 		    free(key);
 		    EVP_MD_CTX_free(ctx);
 		    return NULL;
-		}
+	}
 
 		EVP_MD_CTX_free(ctx);
 		return key;
-	}
 }
 
 unsigned char *getRandomIV() {
@@ -93,3 +93,47 @@ unsigned char *getRandomIV() {
 	return iv;
 }
 
+
+int encryptData(const char *plainText, int plainTextLen, const unsigned char *key, unsigned char *iv, unsigned char **outCipherText, int *outCipherTextLen) {
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int cipherTextAllocatedLen = plainTextLen + AES_BLOCK_SIZE; // Allocate extra space for padding
+
+    *outCipherText = (unsigned char *)malloc(cipherTextAllocatedLen);
+    if (*outCipherText == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        return 1;
+    }
+
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        fprintf(stderr, "Error: Failed to create cipher context\n");
+        free(*outCipherText);
+        return 1;
+    }
+
+    if(!EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        fprintf(stderr, "Error: Failed to initialize encryption operation\n");
+        free(*outCipherText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+
+    if(!EVP_EncryptUpdate(ctx, *outCipherText, &len, plainText, plainTextLen)) {
+        fprintf(stderr, "Error: Encryption failed\n");
+        free(*outCipherText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+    *outCipherTextLen = len;
+
+    if(!EVP_EncryptFinal_ex(ctx, *outCipherText + len, &len)) {
+        fprintf(stderr, "Error: Finalizing encryption failed\n");
+        free(*outCipherText);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
+    }
+    *outCipherTextLen += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return 0;
+}
