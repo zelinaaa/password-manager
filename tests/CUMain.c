@@ -2,6 +2,7 @@
 
 //TODO: define cryptoTest
 int cryptoTest();
+int encodingTest();
 
 int main()
 {
@@ -11,6 +12,7 @@ int main()
 	}
 
 	cryptoTest();
+	encodingTest();
 
 	CU_basic_set_mode(CU_BRM_VERBOSE);
 	CU_basic_run_tests();
