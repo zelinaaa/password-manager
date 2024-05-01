@@ -7,6 +7,7 @@
 //Key derivation and salt generation
 #define KEY_SIZE 32 // AES-256 key size(Bytes)
 #define SALT_SIZE 16 // Salt size(Bytes)
+#define IV_SIZE 16
 
 //aes encryption
 #define AES_KEY_SIZE 256
