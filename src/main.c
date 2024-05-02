@@ -7,16 +7,20 @@
 int main() {
 	unsigned char * key;
 	unsigned char * iv;
-	//initVault("test");
-	readMasterPassword("test", &key, &iv); //aby sla manipulace s hesly tak se musi readMasterPassword pro ziskani derivovaneho key
-	//addPassword("test", key, iv);
-	//addPassword("test", key, iv);
-	//addPassword("test", key, iv);
+	unsigned char * hash;
+	unsigned char * salt;
+	initVault("test");
+	readMasterPassword("test", &key, &iv, &salt, &hash);
+
+	int resultAuthentication = verifyHash(hash, salt);
+
+	addPassword("test", key, iv);
+	addPassword("test", key, iv);
 	readPasswords("test");
 	printAllPasswords();
-	//editPassword("test", key, iv, 1);
-	//readPasswords("test");
-	//printAllPasswords();
+	editPassword("test", key, iv, 1);
+	readPasswords("test");
+	printAllPasswords();
 	showDecryptedPassword("test", key, iv, 1);
 
     return 0;
@@ -43,12 +47,3 @@ int cbPemPassword(char *buf, int size, int rwflag, void *u){
 	SetConsoleMode(hStdin, mode);
 	return strlen(buf);
 }
-
-
-
-
-
-
-
-
-

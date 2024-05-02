@@ -4,54 +4,40 @@
 #include "../header/storage.h"
 #include "../header/cryptodef.h"
 
-struct PasswordEntry {
-	char service[1000];
-	char login[1000];
-	char password[1000];
-};
-
-struct PasswordEntry vaultCap[VAULT_SIZE];
-int entryCount = 0;
-
-ssize_t myGetline(char **lineptr, size_t *n, FILE *stream) {
-    ssize_t num_chars_read = 0;
-    int next_char;
+ssize_t myGetline(char **linePtr, size_t *n, FILE *stream) {
+    ssize_t numCharsRead = 0;
+    int nextChar;
     size_t i = 0;
 
-    // Allocate initial buffer if needed
-    if (*lineptr == NULL || *n == 0) {
-        *n = 128; // Initial buffer size
-        *lineptr = (char *)malloc(*n);
-        if (*lineptr == NULL) {
-            return -1; // Memory allocation failed
+    if (*linePtr == NULL || *n == 0) {
+        *n = 128;
+        *linePtr = (char *)malloc(*n);
+        if (*linePtr == NULL) {
+            return -1;
         }
     }
 
-    // Read characters until newline or EOF
-    while ((next_char = fgetc(stream)) != EOF) {
-        // Resize buffer if needed
+    while ((nextChar = fgetc(stream)) != EOF) {
         if (i >= *n - 1) {
-            *n *= 2; // Double the buffer size
-            char *temp = (char *)realloc(*lineptr, *n);
+            *n *= 2;
+            char *temp = (char *)realloc(*linePtr, *n);
             if (temp == NULL) {
-                return -1; // Memory reallocation failed
+                return -1;
             }
-            *lineptr = temp;
+            *linePtr = temp;
         }
 
-        (*lineptr)[i++] = (char)next_char;
-        num_chars_read++;
+        (*linePtr)[i++] = (char)nextChar;
+        numCharsRead++;
 
-        if (next_char == '\n') {
-            break; // Stop reading at newline
+        if (nextChar == '\n') {
+            break;
         }
     }
 
-    // Null-terminate the string
-    (*lineptr)[i] = '\0';
+    (*linePtr)[i] = '\0';
 
-    // Return the number of characters read
-    return num_chars_read == 0 ? -1 : num_chars_read;
+    return numCharsRead == 0 ? -1 : numCharsRead;
 }
 
 int initVault(const char * vaultName){
@@ -61,33 +47,27 @@ int initVault(const char * vaultName){
 
 	printf("Zadej master heslo k nove klicence: ");
 	cbPemPassword(masterPassword, sizeof(masterPassword), 0, NULL);
+	masterPassword[sizeof(masterPassword) - 1] = '\0';
+	system("clear");
 
 	unsigned char *key = deriveKey(masterPassword, salt);
 
-	//spojeni soli a masterPassword
-	size_t masterLen = strlen(masterPassword);
-	size_t concatLen = masterLen + SALT_SIZE + 1;
-	char *concatenated = (char *)malloc(concatLen);
-	strcpy(concatenated, salt);
-	strcat(concatenated, masterPassword);
+	size_t masterLen = strlen((char*)masterPassword);
+	size_t concatLen = masterLen + SALT_SIZE;
+	unsigned char* concatenated = (unsigned char*)malloc(concatLen);
+	memcpy(concatenated, salt, SALT_SIZE);
+	memcpy(concatenated + SALT_SIZE, masterPassword, masterLen);
 
-	//provedeni hashe
 	unsigned char *hashedData;
-	hashData(concatenated, strlen(concatenated), &hashedData);
+	hashData(concatenated, concatLen, &hashedData);
 
-	//zasifrovani
 	unsigned char *cipherTextMasterPassword;
 	int cipherTextMasterPasswordLen;
 	encryptData(hashedData, SHA256_LENGTH, key, iv, &cipherTextMasterPassword, &cipherTextMasterPasswordLen);
 
-	//encode do base64
 	char * encodedMaster = base64Encode(cipherTextMasterPassword, cipherTextMasterPasswordLen);
 	char * encodedIv = base64Encode(iv, IV_SIZE);
 	char * encodedSalt = base64Encode(salt, SALT_SIZE);
-
-	removeNewlines(encodedMaster);
-	removeNewlines(encodedIv);
-	removeNewlines(encodedSalt);
 
 	FILE *file = fopen(vaultName, "w");
 	if (file == NULL) {
@@ -98,6 +78,28 @@ int initVault(const char * vaultName){
 	fprintf(file, "$%s:%s:%s$\n", encodedMaster, encodedIv, encodedSalt);
 
 	fclose(file);
+	return 1;
+}
+
+int verifyHash(const unsigned char * hash, const unsigned char * salt){
+	unsigned char masterPassword[1024];
+
+	printf("Enter master password for authentication: ");
+	cbPemPassword(masterPassword, sizeof(masterPassword), 0, NULL);
+	system("clear");
+
+	size_t masterLen = strlen((char*)masterPassword);
+	size_t concatLen = masterLen + SALT_SIZE;
+	unsigned char* concatenated = (unsigned char*)malloc(concatLen);
+	memcpy(concatenated, salt, SALT_SIZE);
+	memcpy(concatenated + SALT_SIZE, masterPassword, masterLen);
+
+	unsigned char *hashedData;
+	hashData(concatenated, concatLen, &hashedData);
+
+	if (*hash == *hashedData){
+		return 0;
+	}
 	return 1;
 }
 
@@ -120,18 +122,13 @@ int addPassword(const char *vaultName, unsigned char * key, unsigned char * iv){
 	fgets(login, sizeof(login), stdin);
 	printf("\nHeslo sluzby: ");
 	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
+	system("clear");
 
-	//zasifrovani hesla sluzby
 	encryptData(servicepassword, strlen(servicepassword), key, iv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
 
-	//encode do base64
 	char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
 	char * encodedServiceLogin = base64Encode(login, strlen(login));
 	char * encodedServiceName = base64Encode(name, strlen(name));
-
-	removeNewlines(encodedServicePassword);
-	removeNewlines(encodedServiceLogin);
-	removeNewlines(encodedServiceName);
 
 	FILE *file = fopen(vaultName, "a");
 	if (file == NULL) {
@@ -139,14 +136,14 @@ int addPassword(const char *vaultName, unsigned char * key, unsigned char * iv){
 		return 1;
 	}
 
-	// Write master password hash, initial vector, and salt
 	fprintf(file, "@%s:%s:%s@\n", encodedServiceName, encodedServiceLogin, encodedServicePassword);
 
 	fclose(file);
+
 	return 0;
 }
 
-int readMasterPassword(const char *vaultName, unsigned char **iv, unsigned char **key){
+int readMasterPassword(const char *vaultName, unsigned char **iv, unsigned char **key, unsigned char **salt, unsigned char **hash){
 	unsigned char masterPassword[1024];
 	unsigned char * readMasterPassword;
 	unsigned char * readIv;
@@ -172,17 +169,22 @@ int readMasterPassword(const char *vaultName, unsigned char **iv, unsigned char 
 
 	unsigned char * decodedMasterPassword = base64Decode(readMasterPassword, &decodedMasterLen);
 	*iv = base64Decode(readIv, &decodedIvLen);
-	unsigned char * decodedSalt = base64Decode(readSalt, &decodedSaltLen);
+	*salt = base64Decode(readSalt, &decodedSaltLen);
 
 	printf("Zadej master heslo k desifrovani: ");
 	cbPemPassword(masterPassword, sizeof(masterPassword), 0, NULL);
+	system("clear");
 
-	*key = deriveKey(masterPassword, decodedSalt);
+	*key = deriveKey(masterPassword, *salt);
 	unsigned char *decryptedMasterText;
 	int decryptedMasterTextLen;
 	decryptData(decodedMasterPassword, decodedMasterLen, *key, *iv, &decryptedMasterText, &decryptedMasterTextLen);
 
+	*hash = decryptedMasterText;
+
 	fclose(file);
+
+	return 0;
 }
 
 int readPasswords(const char *vaultName){
@@ -208,6 +210,9 @@ int readPasswords(const char *vaultName){
 		decodePassword(line);
 	}
 	fclose(file);
+	free(line);
+
+	return 0;
 }
 
 int editPassword(const char *vaultName, unsigned char *key, unsigned char *iv, int entryId){
@@ -230,17 +235,11 @@ int editPassword(const char *vaultName, unsigned char *key, unsigned char *iv, i
 	printf("\nHeslo sluzby: ");
 	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
 
-	//zasifrovani hesla sluzby
 	encryptData(servicepassword, strlen(servicepassword), key, iv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
 
-	//encode do base64
 	char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
 	char * encodedServiceLogin = base64Encode(login, strlen(login));
 	char * encodedServiceName = base64Encode(name, strlen(name));
-
-	removeNewlines(encodedServicePassword);
-	removeNewlines(encodedServiceLogin);
-	removeNewlines(encodedServiceName);
 
 	char *buffer = NULL;
 	size_t bufferSize = 0;
@@ -253,7 +252,7 @@ int editPassword(const char *vaultName, unsigned char *key, unsigned char *iv, i
 		printf("Error opening files.\n");
 		return 1;
 	}
-	// Read original file line by line
+
 	while (myGetline(&buffer, &bufferSize, originalFile) != -1) {
 		currentLineNumber++;
 		if (currentLineNumber == entryId+1) {
@@ -267,17 +266,9 @@ int editPassword(const char *vaultName, unsigned char *key, unsigned char *iv, i
 	fclose(originalFile);
 	fclose(tempFile);
 
-	if (remove(vaultName) != 0) {
-		printf("Error deleting the original file.\n");
-		return 1;
-	}
+	handleRenameFile(vaultName);
 
-	// Rename the temporary file to the original file name
-	if (rename("tmp", vaultName) != 0) {
-		printf("Error renaming the temporary file.\n");
-		return 1;
-	}
-
+	return 0;
 }
 
 void showDecryptedPassword(const char *vaultName, unsigned char *key, unsigned char *iv, int entryId){
@@ -292,6 +283,8 @@ void showDecryptedPassword(const char *vaultName, unsigned char *key, unsigned c
 			printf("Login: %s", vaultCap[i].login);
 			printf("Password: %s", decryptedServiceText);
 			printf("\n\n");
+
+			free(decryptedServiceText);
 		}
 	}
 }
@@ -312,7 +305,7 @@ int deletePassword(const char *vaultName, int entryId){
 		printf("Error opening files.\n");
 		return 1;
 	}
-	// Read original file line by line
+
 	while (myGetline(&buffer, &bufferSize, originalFile) != -1) {
 		currentLineNumber++;
 		if (currentLineNumber == entryId+1) {
@@ -326,23 +319,27 @@ int deletePassword(const char *vaultName, int entryId){
 	fclose(originalFile);
 	fclose(tempFile);
 
+	handleRenameFile(vaultName);
+
+	return 0;
+}
+
+int handleRenameFile(const char * vaultName){
 	if (remove(vaultName) != 0) {
 		printf("Error deleting the original file.\n");
 		return 1;
 	}
 
-	// Rename the temporary file to the original file name
 	if (rename("tmp", vaultName) != 0) {
 		printf("Error renaming the temporary file.\n");
 		return 1;
 	}
-
 	return 0;
 }
 
 void printAllPasswords(){
 	for (int i = 0; i < entryCount / 3; i++) {
-		printf("Entry %d:\n", i+1);
+		printf("\nEntry %d:\n", i+1);
 		printf("Service: %s", vaultCap[i].service);
 		printf("Login: %s", vaultCap[i].login);
 		printf("Password: %s", vaultCap[i].password);
@@ -363,16 +360,18 @@ void decodePasswordMaster(char * line, unsigned char **readMasterPassword, unsig
 	line[strlen(line)-2] = '\0';
 
 	token = strtok(line, ":");
-	    if (token != NULL) {
-	    	*readMasterPassword = token;
-	        token = strtok(NULL, ":");
-	        if (token != NULL) {
-	        	*readIv = token;
-	            token = strtok(NULL, ":");
-	            if (token != NULL) {
-	            	*readSalt = token;
-	            }
-}}}
+	if (token != NULL) {
+		*readMasterPassword = token;
+		token = strtok(NULL, ":");
+		if (token != NULL) {
+			*readIv = token;
+			token = strtok(NULL, ":");
+			if (token != NULL) {
+				*readSalt = token;
+			}
+		}
+	}
+}
 
 void decodePassword(char * line){
 	char *token;
@@ -410,15 +409,8 @@ void decodePassword(char * line){
 				strcpy(vaultCap[entryCount / 3].password, decodedPassword);
 				break;
 		}
-
 		token = strtok(NULL, ":");
 		entryCount++;
 	}
 }
 
-void removeNewlines(char *str) {
-    char *pos;
-    if ((pos = strchr(str, '\n')) != NULL) {
-        *pos = '\0';
-    }
-}
