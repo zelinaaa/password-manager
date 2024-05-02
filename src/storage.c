@@ -1,8 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #include "../header/storage.h"
 #include "../header/cryptodef.h"
+
+int cbPemPassword(char *buf, int size, int rwflag, void *u){
+	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD mode = 0;
+
+	GetConsoleMode(hStdin, &mode);
+	SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT));
+
+	if (!fgets(buf, size, stdin)) {
+		buf[0] = '\0';
+	} else {
+		char *pos;
+		if ((pos = strchr(buf, '\n')) != NULL) {
+			*pos = '\0';
+		}
+	}
+
+	SetConsoleMode(hStdin, mode);
+	return strlen(buf);
+}
 
 ssize_t myGetline(char **linePtr, size_t *n, FILE *stream) {
     ssize_t numCharsRead = 0;
