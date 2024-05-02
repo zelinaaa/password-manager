@@ -92,8 +92,8 @@ char *base64Encode(unsigned char *buffer, size_t bufferLen)
     }
 
     memcpy(encodedText, bufferPointer->data, bufferPointer->length);
-    encodedText[bufferPointer->length] = '\0';
-    if(bufferPointer->length > 1)
+
+    if(bufferPointer->length > 0)
     	encodedText[bufferPointer->length - 1] = '\0'; // get rid of newline character
     BIO_set_close(bio, BIO_NOCLOSE);
 
