@@ -10,8 +10,8 @@ struct PasswordEntry {
 	char password[1000];
 };
 
-struct PasswordEntry vaultCap[100];
-int entry_count = 0;
+struct PasswordEntry vaultCap[VAULT_SIZE];
+int entryCount = 0;
 
 ssize_t myGetline(char **lineptr, size_t *n, FILE *stream) {
     ssize_t num_chars_read = 0;
@@ -102,6 +102,11 @@ int initVault(const char * vaultName){
 }
 
 int addPassword(const char *vaultName, unsigned char * key, unsigned char * iv){
+	if (entryCount >= VAULT_SIZE*3) {
+		printf("Your password vault is at max capacity.\n");
+		return 1;
+	}
+
 	const char servicepassword[1000];
 	unsigned char login[1024];
 	unsigned char name[1024];
@@ -182,7 +187,7 @@ int readMasterPassword(const char *vaultName, unsigned char **iv, unsigned char 
 
 int readPasswords(const char *vaultName){
 	memset(vaultCap, 0, sizeof(vaultCap));
-	entry_count = 0;
+	entryCount = 0;
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
@@ -205,9 +210,139 @@ int readPasswords(const char *vaultName){
 	fclose(file);
 }
 
+int editPassword(const char *vaultName, unsigned char *key, unsigned char *iv, int entryId){
+	if (0 == entryCount) {
+		printf("Your password vault is empty.\n");
+		return 1;
+	}
+
+	const char servicepassword[1000];
+	unsigned char login[1024];
+	unsigned char name[1024];
+
+	unsigned char *cipherTextServicePassword;
+	int cipherTextServicePasswordLen;
+
+	printf("\nNazev sluzby: ");
+	fgets(name, sizeof(name), stdin);
+	printf("\nLogin sluzby: ");
+	fgets(login, sizeof(login), stdin);
+	printf("\nHeslo sluzby: ");
+	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
+
+	//zasifrovani hesla sluzby
+	encryptData(servicepassword, strlen(servicepassword), key, iv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
+
+	//encode do base64
+	char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
+	char * encodedServiceLogin = base64Encode(login, strlen(login));
+	char * encodedServiceName = base64Encode(name, strlen(name));
+
+	removeNewlines(encodedServicePassword);
+	removeNewlines(encodedServiceLogin);
+	removeNewlines(encodedServiceName);
+
+	char *buffer = NULL;
+	size_t bufferSize = 0;
+	int currentLineNumber = 0;
+
+	FILE *originalFile = fopen(vaultName, "r");
+	FILE *tempFile = fopen("tmp", "w");
+
+	if (originalFile == NULL || tempFile == NULL) {
+		printf("Error opening files.\n");
+		return 1;
+	}
+	// Read original file line by line
+	while (myGetline(&buffer, &bufferSize, originalFile) != -1) {
+		currentLineNumber++;
+		if (currentLineNumber == entryId+1) {
+			fprintf(tempFile, "@%s:%s:%s@\n", encodedServiceName, encodedServiceLogin, encodedServicePassword);
+		} else {
+			fputs(buffer, tempFile);
+		}
+	}
+
+	free(buffer);
+	fclose(originalFile);
+	fclose(tempFile);
+
+	if (remove(vaultName) != 0) {
+		printf("Error deleting the original file.\n");
+		return 1;
+	}
+
+	// Rename the temporary file to the original file name
+	if (rename("tmp", vaultName) != 0) {
+		printf("Error renaming the temporary file.\n");
+		return 1;
+	}
+
+}
+
+void showDecryptedPassword(const char *vaultName, unsigned char *key, unsigned char *iv, int entryId){
+	for (int i = 0; i < entryCount / 3; i++){
+		if (i+1 == entryId){
+			unsigned char *decryptedServiceText;
+			int decryptedServiceTextLen;
+			decryptData(vaultCap[i].password, strlen(vaultCap[i].password), key, iv, &decryptedServiceText, &decryptedServiceTextLen);
+			decryptedServiceText[decryptedServiceTextLen] = '\0';
+			printf("Entry %d:\n", i+1);
+			printf("Service: %s", vaultCap[i].service);
+			printf("Login: %s", vaultCap[i].login);
+			printf("Password: %s", decryptedServiceText);
+			printf("\n\n");
+		}
+	}
+}
+
+int deletePassword(const char *vaultName, int entryId){
+	if (0 == entryCount) {
+		printf("Your password vault is empty.\n");
+		return 1;
+	}
+	char *buffer = NULL;
+	size_t bufferSize = 0;
+	int currentLineNumber = 0;
+
+	FILE *originalFile = fopen(vaultName, "r");
+	FILE *tempFile = fopen("tmp", "w");
+
+	if (originalFile == NULL || tempFile == NULL) {
+		printf("Error opening files.\n");
+		return 1;
+	}
+	// Read original file line by line
+	while (myGetline(&buffer, &bufferSize, originalFile) != -1) {
+		currentLineNumber++;
+		if (currentLineNumber == entryId+1) {
+			fputs("", tempFile);
+		} else {
+			fputs(buffer, tempFile);
+		}
+	}
+
+	free(buffer);
+	fclose(originalFile);
+	fclose(tempFile);
+
+	if (remove(vaultName) != 0) {
+		printf("Error deleting the original file.\n");
+		return 1;
+	}
+
+	// Rename the temporary file to the original file name
+	if (rename("tmp", vaultName) != 0) {
+		printf("Error renaming the temporary file.\n");
+		return 1;
+	}
+
+	return 0;
+}
+
 void printAllPasswords(){
-	for (int i = 0; i < entry_count / 3; i++) {
-		printf("Entry %d:\n", i + 1);
+	for (int i = 0; i < entryCount / 3; i++) {
+		printf("Entry %d:\n", i+1);
 		printf("Service: %s", vaultCap[i].service);
 		printf("Login: %s", vaultCap[i].login);
 		printf("Password: %s", vaultCap[i].password);
@@ -253,31 +388,31 @@ void decodePassword(char * line){
 
 	token = strtok(line, ":");
 	while (token != NULL) {
-		if (entry_count >= 100) {
+		if (entryCount >= VAULT_SIZE*3) {
 			printf("Maximum number of entries reached.\n");
 			break;
 		}
 
-		switch (entry_count % 3) {
+		switch (entryCount % 3) {
 			case 0:
 				unsigned char * decodedService = base64Decode(token, &decodedServiceLen);
 				decodedService[decodedServiceLen] = '\0';
-				strcpy(vaultCap[entry_count / 3].service, decodedService);
+				strcpy(vaultCap[entryCount / 3].service, decodedService);
 				break;
 			case 1:
 				unsigned char * decodedLogin = base64Decode(token, &decodedLoginLen);
 				decodedLogin[decodedLoginLen] = '\0';
-				strcpy(vaultCap[entry_count / 3].login, decodedLogin);
+				strcpy(vaultCap[entryCount / 3].login, decodedLogin);
 				break;
 			case 2:
 				unsigned char * decodedPassword = base64Decode(token, &decodedPasswordLen);
 				decodedPassword[decodedPasswordLen] = '\0';
-				strcpy(vaultCap[entry_count / 3].password, decodedPassword);
+				strcpy(vaultCap[entryCount / 3].password, decodedPassword);
 				break;
 		}
 
 		token = strtok(NULL, ":");
-		entry_count++;
+		entryCount++;
 	}
 }
 

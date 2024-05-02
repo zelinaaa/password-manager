@@ -6,4 +6,6 @@ typedef enum {
 	SERVICE_RECORD
 } RecordType;
 
+#define VAULT_SIZE 100
+
 #endif

@@ -8,14 +8,16 @@ int main() {
 	unsigned char * key;
 	unsigned char * iv;
 	//initVault("test");
-	//readMasterPassword("test", &key, &iv); //aby slo addPassword tak se musi readMasterPassword pro ziskani derivovaneho key
+	readMasterPassword("test", &key, &iv); //aby sla manipulace s hesly tak se musi readMasterPassword pro ziskani derivovaneho key
+	//addPassword("test", key, iv);
+	//addPassword("test", key, iv);
 	//addPassword("test", key, iv);
 	readPasswords("test");
 	printAllPasswords();
-
-	/*Delete hesla by se mohl udelat tak, ze to co je ulozene v strukture tak ulozim do nejakohe temp
-	 * souboru a pak vymazu hlavni soubor a temp soubor prejmenuji na vymazany soubor. Stejne by se udelal i edit.
-	 * Jinak me to nenapada.*/
+	//editPassword("test", key, iv, 1);
+	//readPasswords("test");
+	//printAllPasswords();
+	showDecryptedPassword("test", key, iv, 1);
 
     return 0;
 }
