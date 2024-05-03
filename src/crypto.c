@@ -6,10 +6,6 @@
 #include <openssl/rand.h>
 #include "../header/cryptodef.h"
 
-/*
- * TODO: handle errors properly
- */
-
 int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
     SHA256_CTX sha256;
 

@@ -3,7 +3,7 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 
-unsigned char *base64Decode(char* encodedInput, size_t *decodeLen)
+unsigned char *base64Decode(char* encodedInput, size_t *outDecodeLen)
 {
     BIO *bio = NULL, *b64 = NULL;
     unsigned char *buffer = NULL;
@@ -42,7 +42,7 @@ unsigned char *base64Decode(char* encodedInput, size_t *decodeLen)
 		return buffer;
     }
 
-    *decodeLen = (size_t) BIO_read(bio, buffer, (int) inputLen);
+    *outDecodeLen = (size_t) BIO_read(bio, buffer, (int) inputLen);
 
     BIO_free_all(bio);
 	return buffer;
