@@ -56,7 +56,7 @@ void freeServiceEntries(ServiceEntry *entries, int count) {
 int createNewVault(const char *filename, MasterEntry *entry) {
     FILE *file = fopen(filename, "w"); // Open file for writing
     if (file) {
-        writeMasterPassword(file, entry); // Write the master password to file
+        writeMasterEntry(file, entry); // Write the master password to file
         fclose(file);
     }
     return 0;
@@ -75,23 +75,25 @@ int addEntry(const char *filename, ServiceEntry *entry) {
 
 // Modify an existing entry
 int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *entry) {
-    int count;
-    ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
+	int count;
+	ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
 
-    FILE *file = fopen(filename, "w");
-    if (file) {
-        for (int i = 0; i < count; i++) {
-            if (strcmp(entries[i].serviceName, serviceName) == 0) {
-                writeServiceEntry(file, entry); // Write modified entry
-            } else {
-                writeServiceEntry(file, &entries[i]); // Write unmodified entry
-            }
-        }
-        fclose(file);
-    }
-    freeServiceEntries(entries, count);
+	FILE *file = fopen(filename, "r+");
+	if (file) {
+	    for (int i = 0; i < count; i++) {
+	        if (strcmp(entries[i].serviceName, serviceName) == 0) {
+	            // Seek to the position of the entry to be modified
+	            fseek(file, strlen(entries[i].serviceName) + strlen(entries[i].login) + strlen(entries[i].encryptedPassword) + 3, SEEK_SET);
+	            writeServiceEntry(file, entry); // Write modified entry
+	        } else {
+	            writeServiceEntry(file, &entries[i]); // Write unmodified entry
+	        }
+	    }
+	    fclose(file);
+	}
+	freeServiceEntries(entries, count);
 
-    return 0;
+	return 0;
 }
 
 // Remove an entry
@@ -116,7 +118,7 @@ int removeEntry(const char *filename, const char *serviceName) {
 int modifyMasterEntry(const char *filename, MasterEntry *entry) {
     FILE *file = fopen(filename, "r+");
     if (file) {
-        writeMasterPassword(file, entry); // Overwrite the old master password
+        writeMasterEntry(file, entry); // Overwrite the old master password
         fclose(file);
     }
 
