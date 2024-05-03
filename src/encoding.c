@@ -92,10 +92,12 @@ char *base64Encode(unsigned char *buffer, size_t bufferLen)
     }
 
     memcpy(encodedText, bufferPointer->data, bufferPointer->length);
-    if(bufferPointer->length > 0)
+    if(bufferPointer->length > 0){
     	encodedText[bufferPointer->length - 1] = '\0';
+    }
     BIO_set_close(bio, BIO_NOCLOSE);
 
     BIO_free_all(bio);
 	return encodedText;
 }
+
