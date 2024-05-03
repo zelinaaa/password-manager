@@ -98,20 +98,20 @@ int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *ent
 
 // Remove an entry
 int removeEntry(const char *filename, const char *serviceName) {
-    int count;
-    ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
+	int count;
+	ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
 
-    FILE *file = fopen(filename, "w");
-    if (file) {
-        for (int i = 0; i < count; i++) {
-            if (strcmp(entries[i].serviceName, serviceName) != 0) {
-                writeServiceEntry(file, &entries[i]); // Write all except the one to remove
-            }
-        }
-        fclose(file);
-    }
-    freeServiceEntries(entries, count);
-    return 0;
+	FILE *file = fopen(filename, "r+");
+	if (file) {
+	    for (int i = 0; i < count; i++) {
+	        if (strcmp(entries[i].serviceName, serviceName) != 0) {
+	            writeServiceEntry(file, &entries[i]); // Write all except the one to remove
+	        }
+	    }
+	    fclose(file);
+	}
+	freeServiceEntries(entries, count);
+	return 0;
 }
 
 // Modify the master password entry
