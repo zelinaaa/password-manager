@@ -1,48 +1,116 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include "../header/storage.h"
+#include "../header/util.h"
 
-// Write MasterPassword to file
-int writeMasterEntry(FILE *file, const MasterEntry *entry) {
-    fprintf(file, "$%s:%s:%s$\n", entry->hash, entry->iv, entry->salt);
-    return 0;
+int writeMasterEntry(FILE *file, const MasterEntry *masterEntry) {
+    return fprintf(file, "$%s:%s:%s$\n", masterEntry->hash, masterEntry->iv, masterEntry->salt) < 0;
 }
 
-// Write ServiceEntry to file
-int writeServiceEntry(FILE *file, const ServiceEntry *entry) {
-    fprintf(file, "@%s:%s:%s@\n", entry->serviceName, entry->login, entry->encryptedPassword);
-    return 0;
+int writeServiceEntry(FILE *file, const ServiceEntry *serviceEntry) {
+    return fprintf(file, "@%s:%s:%s@\n", serviceEntry->serviceName, serviceEntry->login, serviceEntry->encryptedPassword) < 0;
 }
 
-// Read all service entries from file
-ServiceEntry *readServiceEntries(FILE *file, int *count) {
-    char line[1024];
+ServiceEntry* readVaultEntries(FILE *file, int *count, MasterEntry *masterEntry) {
+    char *line = NULL;
     int capacity = 10;
     *count = 0;
     ServiceEntry *entries = malloc(capacity * sizeof(ServiceEntry));
+    if (!entries) return NULL;
 
-    while (fgets(line, sizeof(line), file)) {
-        if (line[0] == '@') {
-            if (*count >= capacity) {
-                capacity *= 2;
-                entries = realloc(entries, capacity * sizeof(ServiceEntry));
-            }
-            char *token = strtok(line + 1, ":");
-            entries[*count].serviceName = strdup(token);
+    //Master entry
+    if((line = dynamicFGets(file))){
+    	if (line[0] != '$'){
+    		fprintf(stderr, "Failed to read master entry\n");
+    		free(line);
+    		free(entries);
+    		return NULL;
+    	}
 
-            token = strtok(NULL, ":");
-            entries[*count].login = strdup(token);
+    	char *masterComponents[MASTER_ENTRY_COMPONENT_COUNT] = {NULL, NULL, NULL};
+    	char *ptr = strtok(line + 1, ":$");
+    	int i = 0;
+    	while (ptr && i < MASTER_ENTRY_COMPONENT_COUNT) {
+    		masterComponents[i++] = ptr;
+    		ptr = strtok(NULL, ":$");
+    	}
 
-            token = strtok(NULL, "@");
-            entries[*count].encryptedPassword = strdup(token);
+    	if (i != MASTER_ENTRY_COMPONENT_COUNT) {
+    		fprintf(stderr, "Failed to parse master entry\n");
+    		free(line);
+    		free(entries);
+    		return NULL;
+    	}
 
-            (*count)++;
-        }
+    	masterEntry->hash = strdup(masterComponents[0]);
+    	masterEntry->iv = strdup(masterComponents[1]);
+    	masterEntry->salt = strdup(masterComponents[2]);
+
+    	if (!masterEntry->hash || !masterEntry->iv || !masterEntry->salt) {
+    		fprintf(stderr, "Failed to allocate memory for master entry components\n");
+    		free(masterEntry->hash);
+    		free(masterEntry->iv);
+    		free(masterEntry->salt);
+    		free(line);
+    		free(entries);
+    		return NULL;
+    	}
+
+    	free(line);
     }
+
+    while ((line = dynamicFGets(file)) && line[0] == '@') {
+        if (*count >= capacity) {
+        	capacity *= 2;
+        	ServiceEntry *temp_entries = realloc(entries, capacity * sizeof(ServiceEntry));
+        	if (!temp_entries) {
+        		fprintf(stderr, "Failed to allocate memory for service entries\n");
+            	freeServiceEntries(entries, *count);
+            	free(entries);
+            	free(line);
+            	return NULL;
+        	}
+        	entries = temp_entries;
+    	}
+
+        char *serviceComponent[SERVICE_ENTRY_COMPONENT_COUNT] = {NULL, NULL, NULL};
+        char *ptr = strtok(line + 1, ":@");
+        int i = 0;
+        while (ptr && i < SERVICE_ENTRY_COMPONENT_COUNT) {
+        	serviceComponent[i++] = ptr;
+            ptr = strtok(NULL, ":@");
+        }
+
+        if (i != SERVICE_ENTRY_COMPONENT_COUNT) {
+            fprintf(stderr, "Failed to parse service entry\n");
+            continue;
+        }
+
+        ServiceEntry *entry = &entries[*count];
+        entry->serviceName = strdup(serviceComponent[0]);
+        entry->login = strdup(serviceComponent[1]);
+        entry->encryptedPassword = strdup(serviceComponent[2]);
+
+        free(line);
+
+        if (!entry->serviceName || !entry->login || !entry->encryptedPassword) {
+            fprintf(stderr, "Failed to allocate memory for service entry components\n");
+            free(entry->serviceName);
+            free(entry->login);
+            free(entry->encryptedPassword);
+            continue;
+        }
+        (*count)++;
+    }
+
+    if(line)
+    	free(line);
+
     return entries;
 }
 
-// Free memory allocated for service entries
 void freeServiceEntries(ServiceEntry *entries, int count) {
     for (int i = 0; i < count; i++) {
         free(entries[i].serviceName);
@@ -52,75 +120,127 @@ void freeServiceEntries(ServiceEntry *entries, int count) {
     free(entries);
 }
 
-// Create a new vault file
-int createNewVault(const char *filename, MasterEntry *entry) {
-    FILE *file = fopen(filename, "w"); // Open file for writing
-    if (file) {
-        writeMasterEntry(file, entry); // Write the master password to file
-        fclose(file);
-    }
+void freeMasterEntry(MasterEntry* masterEntry)
+{
+	free(masterEntry->hash);
+	free(masterEntry->iv);
+	free(masterEntry->salt);
+}
+
+int createNewVault(const char *filename, MasterEntry *masterEntry) {
+    FILE *file = fopen(filename, "w");
+    if (!file) return -1;
+    int result = writeMasterEntry(file, masterEntry);
+    fclose(file);
     return 0;
 }
 
-// Add a new service entry
-int addEntry(const char *filename, ServiceEntry *entry) {
-    FILE *file = fopen(filename, "a"); // Append to file
-    if (file) {
-        writeServiceEntry(file, entry);
-        fclose(file);
-    }
-
+int addEntry(const char *filename, ServiceEntry *serviceEntry) {
+    FILE *file = fopen(filename, "a");
+    if (!file) return -1;
+    int result = writeServiceEntry(file, serviceEntry);
+    fclose(file);
     return 0;
 }
 
-// Modify an existing entry
-int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *entry) {
-	int count;
-	ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
+int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *newServiceEntry) {
+    int count;
+    MasterEntry masterEntry;
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
 
-	FILE *file = fopen(filename, "r+");
-	if (file) {
-	    for (int i = 0; i < count; i++) {
-	        if (strcmp(entries[i].serviceName, serviceName) == 0) {
-	            // Seek to the position of the entry to be modified
-	            fseek(file, strlen(entries[i].serviceName) + strlen(entries[i].login) + strlen(entries[i].encryptedPassword) + 3, SEEK_SET);
-	            writeServiceEntry(file, entry); // Write modified entry
-	        } else {
-	            writeServiceEntry(file, &entries[i]); // Write unmodified entry
-	        }
-	    }
-	    fclose(file);
-	}
-	freeServiceEntries(entries, count);
+    ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
+    fclose(file);
 
-	return 0;
+    file = fopen(filename, "w");
+    if (!file) {
+        freeServiceEntries(entries, count);
+        return -1;
+    }
+
+    writeMasterEntry(file, &masterEntry);
+
+    for (int i = 0; i < count; i++) {
+        if (entries[i].serviceName) {
+            if (strcmp(entries[i].serviceName, serviceName) == 0) {
+                int result = writeServiceEntry(file, newServiceEntry);
+                if (result != 0) {
+                    fprintf(stderr, "Failed to write modified entry\n");
+                    break;
+                }
+            } else {
+                int result = writeServiceEntry(file, &entries[i]);
+                if (result != 0) {
+                    fprintf(stderr, "Failed to write service entry\n");
+                    break;
+                }
+            }
+        }
+    }
+
+    freeMasterEntry(&masterEntry);
+    freeServiceEntries(entries, count);
+    fclose(file);
+    return 0;
 }
 
-// Remove an entry
 int removeEntry(const char *filename, const char *serviceName) {
-	int count;
-	ServiceEntry *entries = readServiceEntries(fopen(filename, "r"), &count);
+    int count;
+    MasterEntry masterEntry;
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
 
-	FILE *file = fopen(filename, "r+");
-	if (file) {
-	    for (int i = 0; i < count; i++) {
-	        if (strcmp(entries[i].serviceName, serviceName) != 0) {
-	            writeServiceEntry(file, &entries[i]); // Write all except the one to remove
-	        }
-	    }
-	    fclose(file);
-	}
-	freeServiceEntries(entries, count);
-	return 0;
-}
+    ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
+    fclose(file);
 
-// Modify the master password entry
-int modifyMasterEntry(const char *filename, MasterEntry *entry) {
-    FILE *file = fopen(filename, "r+");
-    if (file) {
-        writeMasterEntry(file, entry); // Overwrite the old master password
-        fclose(file);
+    file = fopen(filename, "w");
+    if (!file) {
+        freeServiceEntries(entries, count);
+        return -1;
     }
 
+    writeMasterEntry(file, &masterEntry);
+    for (int i = 0; i < count; i++) {
+        if (strcmp(entries[i].serviceName, serviceName) != 0) {
+            writeServiceEntry(file, &entries[i]);
+        }
+    }
+    fclose(file);
+    freeServiceEntries(entries, count);
+    return 0;
+}
+
+int modifyMasterEntry(const char *filename, MasterEntry *newMasterEntry) {
+    int count;
+    MasterEntry currentMasterEntry;
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
+
+    ServiceEntry *entries = readVaultEntries(file, &count, &currentMasterEntry);
+    fclose(file);
+
+    file = fopen(filename, "w");
+    if (!file) {
+        freeServiceEntries(entries, count);
+        return -1;
+    }
+
+    if (writeMasterEntry(file, newMasterEntry) < 0) {
+        fclose(file);
+        freeServiceEntries(entries, count);
+        return -1;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (writeServiceEntry(file, &entries[i]) < 0) {
+            fprintf(stderr, "Failed to write service entry\n");
+            fclose(file);
+            freeServiceEntries(entries, count);
+            return -1;
+        }
+    }
+
+    fclose(file);
+    freeServiceEntries(entries, count);
     return 0;
 }

@@ -1,6 +1,9 @@
 #ifndef STORAGE_H_
 #define STORAGE_H_
 
+#define MASTER_ENTRY_COMPONENT_COUNT 3
+#define SERVICE_ENTRY_COMPONENT_COUNT 3
+
 typedef struct {
     char *hash;
     char *iv;
@@ -14,14 +17,14 @@ typedef struct {
 } ServiceEntry;
 
 
-int writeMasterPassword(FILE *file, const MasterEntry *entry);
-int writeServiceEntry(FILE *file, const ServiceEntry *entry);
-ServiceEntry *readServiceEntries(FILE *file, int *count);
+int writeMasterEntry(FILE *file, const MasterEntry *masterEntry);
+int writeServiceEntry(FILE *file, const ServiceEntry *serviceEntry);
+ServiceEntry* readVaultEntries(FILE *file, int *count, MasterEntry *masterEntry);
 void freeServiceEntries(ServiceEntry *entries, int count);
-int createNewVault(const char *filename, MasterEntry *entry);
-int addEntry(const char *filename, ServiceEntry *entry);
-int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *entry);
+int createNewVault(const char *filename, MasterEntry *masterEntry);
+int addEntry(const char *filename, ServiceEntry *serviceEntry);
+int modifyEntry(const char *filename, const char *serviceName, ServiceEntry *newServiceEntry);
 int removeEntry(const char *filename, const char *serviceName);
-int modifyMasterEntry(const char *filename, MasterEntry *entry);
+int modifyMasterEntry(const char *filename, MasterEntry *masterEntry);
 
 #endif
