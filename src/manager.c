@@ -206,16 +206,109 @@ int editEntry(const char *fileName, const char * serviceName){
 		.encryptedPassword = encodedServicePassword
 	};
 
-	printf("Service Name: %s\n", modifiedEntry.serviceName);
-	printf("Login: %s\n", modifiedEntry.login);
-	printf("Encrypted Password: %s\n", modifiedEntry.encryptedPassword);
-
 	if (modifyEntry(fileName, base64Encode(serviceName, strlen(serviceName)), &modifiedEntry) != 0){
 		fprintf(stderr, "Failed to edit entry in vault.\n");
 		return 1;
 	}
 
 	return 0;
+}
+
+int editMaster(const char *fileName){
+	unsigned char *key;
+	unsigned char *cipherTextServicePassword;
+	int cipherTextServicePasswordLen;
+
+	MasterEntry masterEntry;
+	getMasterEntryByFilename(fileName, &masterEntry);
+
+	size_t decodedMasterLen;
+	size_t decodedIvLen;
+	size_t decodedSaltLen;
+
+	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
+	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
+	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
+
+	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
+		return 1;
+	}
+
+	unsigned char newMasterPassword[1000];
+	unsigned char * newIv = getRandomIV();
+	unsigned char * newSalt = getRandomSalt();
+
+	printf("\nEnter new master password: ");
+	cbPemPassword(newMasterPassword, sizeof(newMasterPassword), 0, NULL);
+	newMasterPassword[sizeof(newMasterPassword) - 1] = '\0';
+
+	int count;
+	FILE *file = fopen(fileName, "r");
+	if (!file) return -1;
+	ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
+
+	for (int i = 0; i < count; i++){
+		size_t decodedLen;
+		unsigned char *decodedPassword = base64Decode(entries[i].encryptedPassword, &decodedLen);
+
+		int decryptedLen;
+		unsigned char *decryptedPassword;
+
+		decryptData(decodedPassword, decodedLen, key, decodedIv, &decryptedPassword, &decryptedLen);
+
+		entries[i].encryptedPassword = (char *)malloc(decryptedLen + 1);
+		memcpy(entries[i].encryptedPassword, decryptedPassword, decryptedLen);
+		entries[i].encryptedPassword[decryptedLen] = '\0';
+	}
+
+	unsigned char *newKey = deriveKey(newMasterPassword, newSalt);
+
+	size_t masterLen = strlen((char*)newMasterPassword);
+	size_t concatLen = masterLen + SALT_SIZE;
+	unsigned char* concatenated = (unsigned char*)malloc(concatLen);
+	memcpy(concatenated, newSalt, SALT_SIZE);
+	memcpy(concatenated + SALT_SIZE, newMasterPassword, masterLen);
+
+	unsigned char *hashedData;
+	hashData(concatenated, concatLen, &hashedData);
+
+	unsigned char *cipherTextMasterPassword;
+	int cipherTextMasterPasswordLen;
+	encryptData(hashedData, SHA256_LENGTH, newKey, newIv, &cipherTextMasterPassword, &cipherTextMasterPasswordLen);
+
+	char * encodedMaster = base64Encode(cipherTextMasterPassword, cipherTextMasterPasswordLen);
+	char * encodedIv = base64Encode(newIv, IV_SIZE);
+	char * encodedSalt = base64Encode(newSalt, SALT_SIZE);
+
+	MasterEntry newMasterEntry = {
+		.hash = encodedMaster,
+		.iv = encodedIv,
+		.salt = encodedSalt
+	};
+
+	if (createNewVault(fileName, &newMasterEntry) != 0) {
+		fprintf(stderr, "Failed to create a new vault.\n");
+		return 1;
+	}
+
+	for (int i = 0; i < count; i++){
+		unsigned char *cipherTextServicePassword;
+		int cipherTextServicePasswordLen;
+
+		encryptData(entries[i].encryptedPassword, strlen(entries[i].encryptedPassword), newKey, newIv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
+
+		char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
+
+		entries[i].encryptedPassword = (char *)malloc(cipherTextServicePasswordLen + 1);
+		memcpy(entries[i].encryptedPassword, encodedServicePassword, strlen(encodedServicePassword));
+		entries[i].encryptedPassword[strlen(encodedServicePassword)] = '\0';
+
+		if (addEntry(fileName, &entries[i]) != 0){
+			fprintf(stderr, "Failed to add entry to vault.\n");
+			return 1;
+		}
+	}
+
 }
 
 void removeNewlines(char *str) {

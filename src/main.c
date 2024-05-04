@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(operation, "-e") == 0) {
 			if (argc == 4) {
 				//readFile(fileName);
-				printf("%s - edit master password", argv[2]);
+				editMaster(argv[2]);
 			} else if (argc == 5) {
 				editEntry(argv[2], argv[4]);
 			} else {
