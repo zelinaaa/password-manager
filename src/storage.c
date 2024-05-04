@@ -121,7 +121,7 @@ int getMasterEntry(FILE *file, MasterEntry* outMasterEntry)
 	return 0;
 }
 
-int getMasterEntry(const char* filename, MasterEntry* outMasterEntry)
+int getMasterEntryByFilename(const char* filename, MasterEntry* outMasterEntry)
 {
 	FILE *file = fopen(filename, "r");
 	if (!file) return -1;
@@ -137,7 +137,7 @@ void freeServiceEntries(ServiceEntry *entries, int count) {
         free(entries[i].serviceName);
         free(entries[i].login);
         free(entries[i].encryptedPassword);
-    }
+
     free(entries);
 }
 
