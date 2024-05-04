@@ -101,3 +101,4 @@ char *base64Encode(unsigned char *buffer, size_t bufferLen)
 	return encodedText;
 }
 
+
