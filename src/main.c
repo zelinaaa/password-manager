@@ -5,6 +5,7 @@
 #include "../header/manager.h"
 
 int main(int argc, char *argv[]) {
+
 	if (argc < 3) {
 		printf("Usage: %s -i <filename> (create new file to store passwords in)\n", argv[0]);
 		printf("       %s -i <filename> -d (delete file containing passwords)\n", argv[0]);
@@ -44,11 +45,10 @@ int main(int argc, char *argv[]) {
 				printf("Invalid arguments for delete entry\n");
 				return 1;
 			}
-			deleteEntry(fileName, argv[4]); // implement
+			deleteEntry(fileName, argv[4]);
 		} else if (strcmp(operation, "-r") == 0) {
 			if (argc == 4) {
-				listAllServices(fileName); //fix
-				printf("%s - read file", argv[2]);
+				listAllServices(fileName);
 			} else if (argc == 5) {
 				readServicePassword(fileName, argv[4]); //implement
 			} else {

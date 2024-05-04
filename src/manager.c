@@ -318,9 +318,6 @@ void removeNewlines(char *str) {
     }
 }
 
-
-//################################################################
-
 int deleteEntry(const char *filename, const char *serviceName)
 {
 	unsigned char *key;
@@ -341,3 +338,32 @@ int deleteEntry(const char *filename, const char *serviceName)
 
 	return removeEntry(filename, base64Encode(serviceName, strlen(serviceName)));
 }
+
+int listAllServices(const char *filename) {
+	FILE* file = fopen(filename, "r");
+    int count;
+    MasterEntry masterEntry = {NULL, NULL, NULL};
+    ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
+    //freeMasterEntry(masterEntry);
+    fclose(file);
+
+    if (entries == NULL) {
+        return 1;
+    }
+
+    size_t decodedLen;
+    for (int i = 0; i < count; i++) {
+    	unsigned char* decodedServiceName = base64Decode(entries[i].serviceName, &decodedLen);
+    	decodedServiceName[decodedLen] = '\0';
+        printf("%s\n", decodedServiceName);
+    }
+
+    freeServiceEntries(entries, count);
+    return 0;
+}
+
+int readServicePassword(const char *filename, const char *service)
+{
+	return -1;
+}
+
