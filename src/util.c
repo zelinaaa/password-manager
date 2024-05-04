@@ -1,7 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #include "../header/util.h"
+
+int cbPemPassword(char *buf, int size, int rwflag, void *u){
+	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD mode = 0;
+
+	GetConsoleMode(hStdin, &mode);
+	SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT));
+
+	if (!fgets(buf, size, stdin)) {
+		buf[0] = '\0';
+	} else {
+		char *pos;
+		if ((pos = strchr(buf, '\n')) != NULL) {
+			*pos = '\0';
+		}
+	}
+
+	SetConsoleMode(hStdin, mode);
+	return strlen(buf);
+}
+
 
 char* dynamicFGets(FILE* file) {
     char *buffer = NULL;
