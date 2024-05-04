@@ -16,6 +16,7 @@ int initVault(const char * fileName){
 
 	if (access(fileName, F_OK) == 0) {
 		fprintf(stderr, "File exists.\n");
+		return 1;
 	}
 
 	printf("Enter master password for vault: ");
@@ -136,6 +137,9 @@ int addService(const char * fileName, const char * serviceName){
 	printf("\nEnter service password: ");
 	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
 
+	removeNewlines(login);
+	removeNewlines(servicepassword);
+
 	encryptData(servicepassword, strlen(servicepassword), key, decodedIv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
 
 	char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
@@ -154,3 +158,74 @@ int addService(const char * fileName, const char * serviceName){
 	}
 	return 0;
 }
+
+int editEntry(const char *fileName, const char * serviceName){
+	const char servicepassword[1000];
+	unsigned char login[1024];
+	unsigned char name[1024];
+	unsigned char service[1024];
+	unsigned char *key;
+	unsigned char *cipherTextServicePassword;
+	int cipherTextServicePasswordLen;
+
+	MasterEntry masterEntry;
+	getMasterEntryByFilename(fileName, &masterEntry);
+
+	size_t decodedMasterLen;
+	size_t decodedIvLen;
+	size_t decodedSaltLen;
+
+	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
+	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
+	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
+
+	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
+		return 1;
+	}
+
+	printf("\nEnter new service name: ");
+	fgets(service, sizeof(service), stdin);
+	printf("\nEnter new service login: ");
+	fgets(login, sizeof(login), stdin);
+	printf("\nEnter new service password: ");
+	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
+
+	removeNewlines(service);
+	removeNewlines(login);
+	removeNewlines(servicepassword);
+
+	encryptData(servicepassword, strlen(servicepassword), key, decodedIv, &cipherTextServicePassword, &cipherTextServicePasswordLen);
+
+	char * encodedServicePassword = base64Encode(cipherTextServicePassword, cipherTextServicePasswordLen);
+	char * encodedServiceName = base64Encode(service, strlen(service));
+	char * encodedServiceLogin = base64Encode(login, strlen(login));
+
+	ServiceEntry modifiedEntry = {
+		.serviceName = encodedServiceName,
+		.login = encodedServiceLogin,
+		.encryptedPassword = encodedServicePassword
+	};
+
+	printf("Service Name: %s\n", modifiedEntry.serviceName);
+	printf("Login: %s\n", modifiedEntry.login);
+	printf("Encrypted Password: %s\n", modifiedEntry.encryptedPassword);
+
+	if (modifyEntry(fileName, base64Encode(serviceName, strlen(serviceName)), &modifiedEntry) != 0){
+		fprintf(stderr, "Failed to edit entry in vault.\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+void removeNewlines(char *str) {
+    char *pos;
+    if ((pos = strchr(str, '\n')) != NULL) {
+        *pos = '\0';
+    }
+}
+
+
+
+
+

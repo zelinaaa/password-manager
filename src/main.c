@@ -62,8 +62,7 @@ int main(int argc, char *argv[]) {
 				//readFile(fileName);
 				printf("%s - edit master password", argv[2]);
 			} else if (argc == 5) {
-				//readServiceEntry(fileName, argv[4]);
-				printf("%s , %s - edit service", argv[2], argv[4]);
+				editEntry(argv[2], argv[4]);
 			} else {
 				printf("Invalid arguments for read operation\n");
 				return 1;
