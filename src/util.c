@@ -24,7 +24,6 @@ int cbPemPassword(char *buf, int size, int rwflag, void *u){
 	return strlen(buf);
 }
 
-
 char* dynamicFGets(FILE* file) {
     char *buffer = NULL;
     char tempBuffer[128];
