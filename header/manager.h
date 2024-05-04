@@ -8,4 +8,8 @@ int addService(const char * fileName, const char * serviceName);
 int editEntry(const char *fileName, const char * serviceName);
 void removeNewlines(char *str);
 
+int deleteEntry(const char *filename, const char *serviceName);
+int listAllServices(const char *filename);
+int readServicePassword(const char *filename, const char *service);
+
 #endif
