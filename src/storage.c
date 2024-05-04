@@ -298,3 +298,4 @@ int modifyMasterEntry(const char *filename, MasterEntry *newMasterEntry) {
     freeServiceEntries(entries, count);
     return 0;
 }
+
