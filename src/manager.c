@@ -319,4 +319,25 @@ void removeNewlines(char *str) {
 }
 
 
+//################################################################
 
+int deleteEntry(const char *filename, const char *serviceName)
+{
+	unsigned char *key;
+	MasterEntry masterEntry;
+	getMasterEntryByFilename(filename, &masterEntry);
+
+	size_t decodedMasterLen;
+	size_t decodedIvLen;
+	size_t decodedSaltLen;
+
+	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
+	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
+	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
+
+	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
+		return 1;
+	}
+
+	return removeEntry(filename, base64Encode(serviceName, strlen(serviceName)));
+}

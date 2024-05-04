@@ -2,6 +2,7 @@
 #include <string.h>
 #include "../header/storage.h"
 #include "../header/cryptodef.h"
+#include "../header/manager.h"
 
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
