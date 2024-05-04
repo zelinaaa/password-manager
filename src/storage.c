@@ -111,6 +111,60 @@ ServiceEntry* readVaultEntries(FILE *file, int *count, MasterEntry *masterEntry)
     return entries;
 }
 
+int getMasterEntry(FILE *file, MasterEntry* outMasterEntry){
+	char *line = NULL;
+
+	if((line = dynamicFGets(file))){
+		if (line[0] != '$'){
+	    	fprintf(stderr, "Failed to read master entry\n");
+	    	free(line);
+	    	return -1;
+	    }
+
+	    char *masterComponents[MASTER_ENTRY_COMPONENT_COUNT] = {NULL, NULL, NULL};
+	    char *ptr = strtok(line + 1, ":$");
+	    int i = 0;
+	    while (ptr && i < MASTER_ENTRY_COMPONENT_COUNT) {
+	    	masterComponents[i++] = ptr;
+	    	ptr = strtok(NULL, ":$");
+	    }
+
+	    if (i != MASTER_ENTRY_COMPONENT_COUNT) {
+	    	fprintf(stderr, "Failed to parse master entry\n");
+	    	free(line);
+	    	return -1;
+	    }
+
+	    outMasterEntry->hash = strdup(masterComponents[0]);
+	    outMasterEntry->iv = strdup(masterComponents[1]);
+	    outMasterEntry->salt = strdup(masterComponents[2]);
+
+	    if (!outMasterEntry->hash || !outMasterEntry->iv || !outMasterEntry->salt) {
+	    	fprintf(stderr, "Failed to allocate memory for master entry components\n");
+	    	free(outMasterEntry->hash);
+	    	free(outMasterEntry->iv);
+	    	free(outMasterEntry->salt);
+	    	free(line);
+	    	return -1;
+	    }
+
+	    free(line);
+	}
+
+	return 0;
+}
+
+int getMasterEntryByFilename(const char* filename, MasterEntry* outMasterEntry){
+	FILE *file = fopen(filename, "r");
+	if (!file) return -1;
+
+	getMasterEntry(file, outMasterEntry);
+
+	fclose(file);
+	return 0;
+}
+
+
 void freeServiceEntries(ServiceEntry *entries, int count) {
     for (int i = 0; i < count; i++) {
         free(entries[i].serviceName);
