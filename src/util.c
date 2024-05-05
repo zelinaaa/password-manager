@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include <conio.h>
 #include "../header/util.h"
 
 int cbPemPassword(char *buf, int size, int rwflag, void *u){
@@ -29,7 +30,7 @@ char* dynamicFGets(FILE* file) {
     char tempBuffer[128];
     size_t bufferLength = 0;
     size_t totalReadLength = 0;
-    const size_t MAX_LINE_LENGTH = 4096;
+    const size_t MAX_LINE_LENGTH = 65536;
 
     while (fgets(tempBuffer, sizeof(tempBuffer), file)) {
         size_t chunkLength = strlen(tempBuffer);
@@ -66,4 +67,36 @@ char* dynamicFGets(FILE* file) {
     }
 
     return buffer;
+}
+
+void displayAndErase(const char* buffer, int bufferLen) {
+	HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+	    CONSOLE_SCREEN_BUFFER_INFO csbi;
+	    DWORD written;
+
+	    GetConsoleScreenBufferInfo(hStdout, &csbi);
+	    DWORD originalAttributes = csbi.wAttributes;
+	    SetConsoleTextAttribute(hStdout, FOREGROUND_RED | FOREGROUND_INTENSITY);
+	    GetConsoleScreenBufferInfo(hStdout, &csbi);
+	    COORD messageStartPos = csbi.dwCursorPosition;
+
+	    fwrite(buffer, sizeof(char), bufferLen, stdout);
+	    fflush(stdout);
+
+	    SetConsoleTextAttribute(hStdout, originalAttributes);
+
+	    csbi.dwCursorPosition.Y++;
+	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
+	    printf("Press any key to continue...");
+	    _getch();
+
+
+	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
+	    FillConsoleOutputCharacter(hStdout, ' ', csbi.dwSize.X, csbi.dwCursorPosition, &written);
+
+	    SetConsoleCursorPosition(hStdout, messageStartPos);
+	    FillConsoleOutputCharacter(hStdout, ' ', bufferLen, messageStartPos, &written);
+
+	    csbi.dwCursorPosition.Y++;
+	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
 }
