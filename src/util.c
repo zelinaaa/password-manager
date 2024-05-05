@@ -74,29 +74,36 @@ void displayAndErase(const char* buffer, int bufferLen) {
 	    CONSOLE_SCREEN_BUFFER_INFO csbi;
 	    DWORD written;
 
-	    GetConsoleScreenBufferInfo(hStdout, &csbi);
+	    if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
+	        fprintf(stderr, "Error getting console info.\n");
+	        return;
+	    }
 	    DWORD originalAttributes = csbi.wAttributes;
+
 	    SetConsoleTextAttribute(hStdout, FOREGROUND_RED | FOREGROUND_INTENSITY);
-	    GetConsoleScreenBufferInfo(hStdout, &csbi);
-	    COORD messageStartPos = csbi.dwCursorPosition;
 
 	    fwrite(buffer, sizeof(char), bufferLen, stdout);
 	    fflush(stdout);
 
 	    SetConsoleTextAttribute(hStdout, originalAttributes);
 
-	    csbi.dwCursorPosition.Y++;
-	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
+	    printf("\n");
+
 	    printf("Press any key to continue...");
 	    _getch();
 
-
-	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
+	    if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
+	        fprintf(stderr, "Error getting console info.\n");
+	        return;
+	    }
+	    csbi.dwCursorPosition.X = 0;
 	    FillConsoleOutputCharacter(hStdout, ' ', csbi.dwSize.X, csbi.dwCursorPosition, &written);
 
-	    SetConsoleCursorPosition(hStdout, messageStartPos);
-	    FillConsoleOutputCharacter(hStdout, ' ', bufferLen, messageStartPos, &written);
+	    csbi.dwCursorPosition.Y--;
+	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
 
-	    csbi.dwCursorPosition.Y++;
+	    FillConsoleOutputCharacter(hStdout, ' ', csbi.dwSize.X, csbi.dwCursorPosition, &written);
+
+	    csbi.dwCursorPosition.Y += 2;
 	    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
 }
