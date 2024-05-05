@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 			if (argc == 4) {
 				listAllServices(fileName);
 			} else if (argc == 5) {
-				readServicePassword(fileName, argv[4]); //implement
+				readServicePassword(fileName, argv[4]);
 			} else {
 				printf("Invalid arguments for read operation\n");
 				return 1;
