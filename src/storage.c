@@ -165,6 +165,53 @@ int getMasterEntryByFilename(const char* filename, MasterEntry* outMasterEntry){
 }
 
 
+int getServiceEntry(const char* filename, const char* serviceName, ServiceEntry* entry)
+{
+	int decodeLen;
+	char* line = NULL;
+	FILE* file = fopen(filename, "r");
+
+	while ((line = dynamicFGets(file))) {
+		if(line[0] == '@'){
+			char *serviceComponent[SERVICE_ENTRY_COMPONENT_COUNT] = {NULL, NULL, NULL};
+		    char *ptr = strtok(line + 1, ":@");
+
+		    const char* decodedServiceName = base64Decode(ptr, &decodeLen);
+
+		    if(strcmp(decodedServiceName, serviceName)){
+		    	free(ptr);
+		    	continue;
+		    }
+
+		    int i = 0;
+		    while (ptr && i < SERVICE_ENTRY_COMPONENT_COUNT) {
+		    	serviceComponent[i++] = ptr;
+		        ptr = strtok(NULL, ":@");
+		    }
+
+		    entry->serviceName = strdup(serviceComponent[0]);
+		    entry->login = strdup(serviceComponent[1]);
+		    entry->encryptedPassword = strdup(serviceComponent[2]);
+
+		    if (!entry->serviceName || !entry->login || !entry->encryptedPassword) {
+		    	fprintf(stderr, "Failed to allocate memory for service entry components\n");
+		    	free(entry->serviceName);
+		    	free(entry->login);
+		    	free(entry->encryptedPassword);
+		    	free(line);
+		    	return -1;
+		    }
+
+		    fclose(filename);
+		    return 0;
+		}
+	}
+
+	fclose(file);
+	return -1;
+}
+
+
 void freeServiceEntries(ServiceEntry *entries, int count) {
     for (int i = 0; i < count; i++) {
         free(entries[i].serviceName);

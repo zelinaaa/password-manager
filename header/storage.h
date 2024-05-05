@@ -28,5 +28,6 @@ int removeEntry(const char *filename, const char *serviceName);
 int modifyMasterEntry(const char *filename, MasterEntry *masterEntry);
 int getMasterEntryByFilename(const char* filename, MasterEntry* outMasterEntry);
 int getMasterEntry(FILE *file, MasterEntry* outMasterEntry);
+int getServiceEntry(const char* filename, const char* serviceName, ServiceEntry* entry);
 
 #endif

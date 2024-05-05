@@ -86,7 +86,7 @@ int deleteVault(const char *fileName){
 int authenticateUser(const unsigned char *hashInput, size_t decodedMasterLen, const unsigned char *saltRead, const unsigned char *readIv, unsigned char **key){
 	unsigned char masterPassword[1024];
 
-	printf("Enter master password for authentication: ");
+	printf("Enter master password: ");
 	cbPemPassword(masterPassword, sizeof(masterPassword), 0, NULL);
 
 	*key = deriveKey(masterPassword, saltRead);
@@ -132,9 +132,9 @@ int addService(const char * fileName, const char * serviceName){
 		return 1;
 	}
 
-	printf("\nEnter service login: ");
+	printf("\nEnter login: ");
 	fgets(login, sizeof(login), stdin);
-	printf("\nEnter service password: ");
+	printf("\nEnter password: ");
 	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
 
 	removeNewlines(login);
@@ -160,7 +160,7 @@ int addService(const char * fileName, const char * serviceName){
 }
 
 int editEntry(const char *fileName, const char * serviceName){
-	const char servicepassword[1000];
+	const char servicepassword[1024];
 	unsigned char login[1024];
 	unsigned char name[1024];
 	unsigned char service[1024];
@@ -183,11 +183,11 @@ int editEntry(const char *fileName, const char * serviceName){
 		return 1;
 	}
 
-	printf("\nEnter new service name: ");
+	printf("\nEnter new name for the service: ");
 	fgets(service, sizeof(service), stdin);
-	printf("\nEnter new service login: ");
+	printf("\nEnter new login: ");
 	fgets(login, sizeof(login), stdin);
-	printf("\nEnter new service password: ");
+	printf("\nEnter new password: ");
 	cbPemPassword(servicepassword, sizeof(servicepassword), 0, NULL);
 
 	removeNewlines(service);
@@ -234,7 +234,7 @@ int editMaster(const char *fileName){
 		return 1;
 	}
 
-	unsigned char newMasterPassword[1000];
+	unsigned char newMasterPassword[1024];
 	unsigned char * newIv = getRandomIV();
 	unsigned char * newSalt = getRandomSalt();
 
@@ -364,6 +364,85 @@ int listAllServices(const char *filename) {
 
 int readServicePassword(const char *filename, const char *service)
 {
-	return -1;
+	/*unsigned char *key;
+	MasterEntry masterEntry;
+	getMasterEntryByFilename(filename, &masterEntry);
+
+	size_t decodedMasterLen;
+	size_t decodedIvLen;
+	size_t decodedSaltLen;
+
+	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
+	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
+	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
+
+	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
+		return 1;
+	}
+
+	ServiceEntry entry;
+	getServiceEntry(filename, service, &entry);
+
+	size_t decodedServiceLen;
+	size_t decodedLoginLen;
+	size_t decodedPasswordLen;
+
+	unsigned char* decodedService = base64Decode(entry.serviceName, &decodedServiceLen);
+	unsigned char* decodedLogin = base64Decode(entry.login, &decodedLoginLen);
+	unsigned char* decodedPassword = base64Decode(entry.encryptedPassword, &decodedPasswordLen);
+
+	int decryptedLen;
+	unsigned char *decryptedPassword;
+	decryptData(decodedPassword, decodedPasswordLen, key, decodedIv, &decryptedPassword, &decryptedLen);
+
+	printf("password: %s", decryptedPassword);
+
+	return 0;*/
+
+	unsigned char *key;
+	int count;
+	MasterEntry masterEntry;
+	FILE *file = fopen(filename, "r");
+	if (!file) return -1;
+
+	ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
+	fclose(file);
+
+	size_t decodedMasterLen;
+	size_t decodedIvLen;
+	size_t decodedSaltLen;
+	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
+	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
+	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
+
+	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
+		return 1;
+	}
+
+	size_t decodedServiceLen;
+	size_t decodedLoginLen;
+	size_t decodedPasswordLen;
+
+	for (int i = 0; i < count; i++) {
+	    if (entries[i].serviceName) {
+	    	unsigned char* decodedService = base64Decode(entries[i].serviceName, &decodedServiceLen);
+
+	    	if (strlen(service) == decodedServiceLen && strncmp(service, decodedService, decodedServiceLen) == 0) {
+	    		unsigned char* decodedLogin = base64Decode(entries[i].login, &decodedServiceLen);
+	    		unsigned char* decodedPassword = base64Decode(entries[i].encryptedPassword, &decodedPasswordLen);
+	    		int decryptedLen;
+	    		unsigned char *decryptedPassword;
+	    		decryptData(decodedPassword, decodedPasswordLen, key, decodedIv, &decryptedPassword, &decryptedLen);
+	    		displayAndErase(decryptedPassword, decryptedLen);
+	    		break;
+	    	}
+
+	    }
+	}
+
+	freeMasterEntry(&masterEntry);
+	freeServiceEntries(entries, count);
+	fclose(file);
+	return 0;
 }
 
