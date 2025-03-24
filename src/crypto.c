@@ -6,6 +6,9 @@
 #include <openssl/rand.h>
 #include "../header/cryptodef.h"
 
+/*Algoritmus pro hash sha256, parametr data je spojena sul a master heslo, dataLen je delka data a hash je vystupni
+ * parametr. Nejprve se alokuje pamet pro delku sha256, tj. 32 bajtu. Dala se provede algoritmus nejprve inicializaci pak
+ * update a nakonec final. Navratova hodnota je 0 pri uspechu, 1 pri neuspechu.*/
 int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
     SHA256_CTX sha256;
 
@@ -36,7 +39,8 @@ int hashData(const unsigned char *data, int dataLen, unsigned char **hash) {
     return 0;
 }
 
-
+/*Funkce pro vygenerovani nahodne soli. Nejprve se alokuje pamet pro sul, to je 16 bajtu. Dale pomoci RAND_bytes
+ * je vygenerovan nahodny retezec bajtu. Navratova hodnota je sul.*/
 unsigned char *getRandomSalt() {
     unsigned char *salt = (unsigned char *)malloc(SALT_SIZE);
     if (salt == NULL) {
@@ -53,6 +57,9 @@ unsigned char *getRandomSalt() {
     return salt;
 }
 
+/*Derivace klice. Nejprve alokujeme pamet velikosti klice pro AES256, to je 32 bajtu. Dale nacteme algoritmus.
+ * Derivace klice je provedena v 262000 iteracich pro vetsi bezpecnost. Derivovano je z master hesla a soli.
+ *  Navratova hodnota je samotny klic.*/
 unsigned char *deriveKey(const char *password, unsigned char *salt) {
 	unsigned char *key = (unsigned char *)malloc(KEY_SIZE);
 	if (key == NULL) {
@@ -78,6 +85,8 @@ unsigned char *deriveKey(const char *password, unsigned char *salt) {
 		return key;
 }
 
+/*Funkce pro vygenerovani nahodneho inicializacniho vektoru. Nejprve se alokuje pamet pro iv, to je 16 bajtu. Dale pomoci RAND_bytes
+ * je vygenerovan nahodny retezec bajtu. Navratova hodnota je iv.*/
 unsigned char *getRandomIV() {
 	unsigned char *iv = (unsigned char *)malloc(AES_BLOCK_SIZE / 8);
 	if (iv == NULL) {
@@ -93,11 +102,12 @@ unsigned char *getRandomIV() {
 	return iv;
 }
 
-
+/*Funkce pro sifrovani. Provedeme algoritmus aes256 v modu cbc, kde vstupni parametry jsou klic a iv a plainText (heslo).
+ * Vystupni parametr je zasifrovany plainText a delka zasifrovaneho textu.*/
 int encryptData(const char *plainText, int plainTextLen, const unsigned char *key, unsigned char *iv, unsigned char **outCipherText, int *outCipherTextLen) {
     EVP_CIPHER_CTX *ctx;
     int len;
-    int cipherTextAllocatedLen = plainTextLen + AES_BLOCK_SIZE; // Allocate extra space for padding
+    int cipherTextAllocatedLen = plainTextLen + AES_BLOCK_SIZE;
 
     *outCipherText = (unsigned char *)malloc(cipherTextAllocatedLen);
     if (*outCipherText == NULL) {
@@ -138,6 +148,8 @@ int encryptData(const char *plainText, int plainTextLen, const unsigned char *ke
     return 0;
 }
 
+/*Funkce pro desifrovani. Provedeme algoritmus aes256 v modu cbc, kde vstupni parametry jsou klic a iv a cipherText (heslo).
+ * Vystupni parametr je plainText a delka plainTextu.*/
 int decryptData(const unsigned char *cipherText, int cipherTextLen, const unsigned char *key, unsigned char *iv, unsigned char **plainText, int *plainTextLen) {
     EVP_CIPHER_CTX *ctx;
     int len;

@@ -5,6 +5,8 @@
 #include <conio.h>
 #include "../header/util.h"
 
+
+/*Funkce pro zadavani neviditelnych znaku do konzole.*/
 int cbPemPassword(char *buf, int size, int rwflag, void *u){
 	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
 	DWORD mode = 0;
@@ -25,6 +27,11 @@ int cbPemPassword(char *buf, int size, int rwflag, void *u){
 	return strlen(buf);
 }
 
+/*Funkce pro cteni zaznamu v souboru. V while cyklu se ctou radky. Pokud je prekrocena velikost
+ * MAX_LINE_LENGTH tak je cteni ukonceno. V newBuffer je alokovana nova velikost chunku.
+ * Do bufferu je nakopirovan chunk. Pokud je posledni znak novy radek tak je nacteny cely radek,
+ * pokud ne tak se dal pokruje v cyklu v dalsim chunku. Nakonec pokud buffer neni prazdny a posledni
+ * znak neni novy radek tak je nastaven novy radek na konec a nulovy znak.*/
 char* dynamicFGets(FILE* file) {
     char *buffer = NULL;
     char tempBuffer[128];
@@ -69,6 +76,7 @@ char* dynamicFGets(FILE* file) {
     return buffer;
 }
 
+/*Funkce pro zobrazeni symbolu do konzole a nasledne po stisknuti klavesy jsou vymazany z konzole. Pro vetsi bezpecnost.*/
 void displayAndErase(const char* buffer, int bufferLen) {
 	HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	    CONSOLE_SCREEN_BUFFER_INFO csbi;

@@ -9,6 +9,9 @@
 #include "../header/encoding.h"
 #include "../header/util.h"
 
+/*Funkce pro vytvoreni noveho password vaultu. Nejprve kontrola jestli uz vault se stejnym nazvem neexistuje. Pokud ne, tak nasleduje zvoleni
+ * master hesla, derivace klice, spojeni soli a master hesla a zahashovani. Dale zasifrujeme hash pro vetsi bezpecnost, nakonec zakodujeme do base64
+ * a vytvorime novy vault.*/
 int initVault(const char * fileName){
 	unsigned char masterPassword[1024];
 	unsigned char *salt = getRandomSalt();
@@ -56,6 +59,8 @@ int initVault(const char * fileName){
 	return 0;
 }
 
+/*Funkce pro odstraneni vytvoreneho vaultu. Nejprve musi projit uzivatel autentizaci, tzn. srovnaji se hashe a pokud jsou shodne tak
+ * dojde k vymazani vaultu.*/
 int deleteVault(const char *fileName){
 	unsigned char *key;
 	unsigned char *cipherTextServicePassword;
@@ -83,6 +88,9 @@ int deleteVault(const char *fileName){
 	return 0;
 }
 
+/*Samotna funkce pro autentizaci uzivatele. Uzivateli je poskytnuta vyzva a odpovida heslem. Vstupni parametry funkce jsou prectena
+ * sul, iv a zasifrovany hash. Derivuje se klic a pokusi se desifrace hashe, pokud projde, tak se jeste porovnaji hashe.
+ * Shoda hashe znamena uspech a navratova hodnota je 0.*/
 int authenticateUser(const unsigned char *hashInput, size_t decodedMasterLen, const unsigned char *saltRead, const unsigned char *readIv, unsigned char **key){
 	unsigned char masterPassword[1024];
 
@@ -109,6 +117,9 @@ int authenticateUser(const unsigned char *hashInput, size_t decodedMasterLen, co
 	return 1;
 }
 
+/*Funkce pro pridani nove sluzby do password vaultu. Nejprve je ziskana ze souboru sul, iv a zasifrovany hash. Provede se autentizace uzivatele.
+ * Po uspesne autentizaci je uzivatel vyzvan k zadani login pro sluzbu a hesla pro sluzbu. Heslo se zasifruje.
+ * Udaje jsou encodnuty do base64 a ulozeny do souboru.*/
 int addService(const char * fileName, const char * serviceName){
 	const char servicepassword[1000];
 	unsigned char login[1024];
@@ -159,6 +170,8 @@ int addService(const char * fileName, const char * serviceName){
 	return 0;
 }
 
+/*Funkce pro zmenu udaju pro sluzbu. Nejprve je ziskana ze souboru sul, iv a zasifrovany hash. Provede se autentizace uzivatele.
+ * Po uspesne autentizaci je uzivatel vyzvan k zadani noveho nazvu, loginu a hesla. Heslo je dale zasifrovano. Udaje jsou encodnuty do base64 a ulozeny do souboru. */
 int editEntry(const char *fileName, const char * serviceName){
 	const char servicepassword[1024];
 	unsigned char login[1024];
@@ -214,6 +227,11 @@ int editEntry(const char *fileName, const char * serviceName){
 	return 0;
 }
 
+/*Funkce pro zmenu master hesla. Nejprve je ziskana ze souboru sul, iv a zasifrovany hash. Provede se autentizace uzivatele.
+ * Po uspesne autentizaci je uzivatel vyzvan k zadani noveho master hesla. Provede se nacteni vsech sluzeb z vaultu.
+ * Vsechny sluzby budou muset byt decodnuty a heslo desifrovano. Nasledne je derivovan novy klic z noveho master hesla a soli.
+ * Je proveden novy hash, ktery se zasifruje. Je prepsan stary vault, kde se ulozi nove master heslo a pridaji se tam stare sluzby, ale
+ * zasifrovane novym master heslem.*/
 int editMaster(const char *fileName){
 	unsigned char *key;
 	unsigned char *cipherTextServicePassword;
@@ -311,6 +329,7 @@ int editMaster(const char *fileName){
 
 }
 
+/*Funkce pro odstraneni noveho radku*/
 void removeNewlines(char *str) {
     char *pos;
     if ((pos = strchr(str, '\n')) != NULL) {
@@ -318,6 +337,8 @@ void removeNewlines(char *str) {
     }
 }
 
+/*Funkce pro odstraneni sluzby z vaultu. Nejprve se provede autentizace. Dale je volana funkce pro odstraneni
+ * zaznamu, ktera provede porovnani shody jmen sluzby.*/
 int deleteEntry(const char *filename, const char *serviceName)
 {
 	unsigned char *key;
@@ -339,12 +360,12 @@ int deleteEntry(const char *filename, const char *serviceName)
 	return removeEntry(filename, base64Encode(serviceName, strlen(serviceName)));
 }
 
+/*Funkce pro vypis vsech sluzeb z vaultu. Sluzby jsou dekodovany, aby byly citelne.*/
 int listAllServices(const char *filename) {
 	FILE* file = fopen(filename, "r");
     int count;
     MasterEntry masterEntry = {NULL, NULL, NULL};
     ServiceEntry *entries = readVaultEntries(file, &count, &masterEntry);
-    //freeMasterEntry(masterEntry);
     fclose(file);
 
     if (entries == NULL) {
@@ -362,43 +383,11 @@ int listAllServices(const char *filename) {
     return 0;
 }
 
+/*Funkce pro cteni sluzby s desifrovanym heslem. Nejprve se uzivatel autentizuje. Nasledne se nalezne
+ * hledana sluzba v vaultu a vypise se do konzole v desifrovane podobe. Pro vetsi bezpecnost se po zobrazeni a dalsiho stisknuti klavesy heslo
+ * vymaze z konzole.*/
 int readServicePassword(const char *filename, const char *service)
 {
-	/*unsigned char *key;
-	MasterEntry masterEntry;
-	getMasterEntryByFilename(filename, &masterEntry);
-
-	size_t decodedMasterLen;
-	size_t decodedIvLen;
-	size_t decodedSaltLen;
-
-	unsigned char *decodedHash = base64Decode(masterEntry.hash, &decodedMasterLen);
-	unsigned char *decodedIv = base64Decode(masterEntry.iv, &decodedIvLen);
-	unsigned char *decodedSalt = base64Decode(masterEntry.salt, &decodedSaltLen);
-
-	if (authenticateUser(decodedHash, decodedMasterLen, decodedSalt, decodedIv, &key) != 0){
-		return 1;
-	}
-
-	ServiceEntry entry;
-	getServiceEntry(filename, service, &entry);
-
-	size_t decodedServiceLen;
-	size_t decodedLoginLen;
-	size_t decodedPasswordLen;
-
-	unsigned char* decodedService = base64Decode(entry.serviceName, &decodedServiceLen);
-	unsigned char* decodedLogin = base64Decode(entry.login, &decodedLoginLen);
-	unsigned char* decodedPassword = base64Decode(entry.encryptedPassword, &decodedPasswordLen);
-
-	int decryptedLen;
-	unsigned char *decryptedPassword;
-	decryptData(decodedPassword, decodedPasswordLen, key, decodedIv, &decryptedPassword, &decryptedLen);
-
-	printf("password: %s", decryptedPassword);
-
-	return 0;*/
-
 	unsigned char *key;
 	int count;
 	MasterEntry masterEntry;

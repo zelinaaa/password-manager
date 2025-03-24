@@ -3,16 +3,18 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 
+//Tyto funkce pouzivame pro omezeny pocet znaku, se kterymi base64 pracuje, tim padem, ulehcuje praci se soubory
+/*Funkce pro dekodovani z base64 do citelne podoby. Vystup funkce je dekodovana podoba.*/
 unsigned char *base64Decode(char* encodedInput, size_t *outDecodeLen)
 {
     BIO *bio = NULL, *b64 = NULL;
     unsigned char *buffer = NULL;
 
     size_t inputLen = strlen(encodedInput);
-
     char *inputWithNewline = malloc(inputLen + 2);
 	if (!inputWithNewline) return NULL;
 
+	//odstraneni noveho radku
 	strcpy(inputWithNewline, encodedInput);
 	strcat(inputWithNewline, "\n");
 
@@ -48,6 +50,7 @@ unsigned char *base64Decode(char* encodedInput, size_t *outDecodeLen)
 	return buffer;
 }
 
+/*Funkce pro zakodovani z citelne podoby do base64. Vystup funkce je zakodovana podoba.*/
 char *base64Encode(unsigned char *buffer, size_t bufferLen)
 {
     BIO *bio = NULL, *b64Alg = NULL;
@@ -91,6 +94,7 @@ char *base64Encode(unsigned char *buffer, size_t bufferLen)
 		return encodedText;
     }
 
+    //vystup algoritmu pridava novy radek na konec, timto se ho zbavujeme
     memcpy(encodedText, bufferPointer->data, bufferPointer->length);
     if(bufferPointer->length > 0){
     	encodedText[bufferPointer->length - 1] = '\0';
